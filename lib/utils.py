@@ -133,3 +133,42 @@ def getNotionPageEntryFromPropObj(propObj):
     return newPage
     
 
+def getAllRowsFromNotionDatabase(notion, notionDB_id):
+    '''
+    Gets all rows (pages) from a notion database using a notion client
+    Args:
+        notion: (notion Client) Notion client object
+        notionDB_id: (str) string code id for the relevant database
+    Returns:
+        allNotionRows: (list of notion rows)
+
+    '''
+    hasMore = True
+    allNotionRows = []
+    i = 0
+
+    while hasMore:
+        if i == 0:
+            query = notion.databases.query(
+                            **{
+                                "database_id": notionDB_id,
+                                #"filter": {"property": "UID", "text": {"equals": it.id}},
+                            }
+                        )
+        else:
+            query = notion.databases.query(
+                            **{
+                                "database_id": notionDB_id,
+                                "start_cursor": nextCursor,
+                                #"filter": {"property": "UID", "text": {"equals": it.id}},
+                            }
+                        )
+            
+        allNotionRows = allNotionRows + query['results']
+        nextCursor = query['next_cursor']
+        hasMore = query['has_more']
+        i+=1
+
+    print('Number of rows in notion currently: ' + str(len(allNotionRows)))
+
+    return allNotionRows
