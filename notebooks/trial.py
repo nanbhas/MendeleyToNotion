@@ -21,7 +21,10 @@ import json
 import random
 import string
 import time
-import pickle as pkl
+
+# %%
+import sys
+sys.path.append('../')
 
 # %%
 from mendeley import Mendeley
@@ -34,31 +37,44 @@ from mendeley.auth import MendeleyLoginAuthenticator, MendeleyAuthorizationCodeT
 from mendeley.auth import MendeleyAuthorizationCodeAuthenticator
 
 # %%
-from oauthlib.oauth2 import MobileApplicationClient, BackendApplicationClient, WebApplicationClient
+from notion_client import Client
 
 # %%
-from notion_client import Client
+from lib.port_utils import startInteractiveMendeleyAuthorization, getPropertiesForMendeleyDoc
+from lib.port_utils import getNotionPageEntryFromPropObj, getAllRowsFromNotionDatabase
+from lib.port_utils import portMendeleyDocsToNotion
+
+# %%
+from datetime import datetime
 
 # %% [markdown]
 # ## Config Files
 
 # %%
-with open("secrets_mendeley.json", "r") as f:
+with open("../secrets/secrets_mendeley.json", "r") as f:
     secrets = json.load(f)
 
 # %%
-with open("secrets_notion.json", "r") as f:
+with open("../secrets/secrets_notion.json", "r") as f:
     secrets_notion = json.load(f)
 
 # %% [markdown]
-# # Trial using alt sources
-
-# %%
-with open("secrets_mendeley_token.json", "r") as f:
-    secrets = json.load(f)
+# ## Start Mendeley Session
 
 # %%
 mendeley = Mendeley(client_id = secrets["clientId"], client_secret = secrets["clientSecret"], redirect_uri= secrets["redirectURL"])
+
+# %%
+forceNewLogin = False
+secretsFilePath = None
+
+# %%
+# interactive authorization flow if force new login or if token is absent
+if forceNewLogin or ("token" not in secrets):
+   startInteractiveMendeleyAuthorization(mendeley, secretsFilePath)
+
+# %%
+assert 'token' in secrets, "token missing from secrets"
 
 # %%
 session = MendeleySession(mendeley, secrets["token"])
@@ -70,208 +86,29 @@ authenticator = MendeleyAuthorizationCodeAuthenticator(mendeley, session.state()
 refresher = MendeleyAuthorizationCodeTokenRefresher(authenticator)
 
 # %%
-sessionTrial = MendeleySession(mendeley, session.token, refresher=refresher)
-
-# %%
-for i, item in enumerate(sessionTrial.documents.iter()):
-    print(i, item)
-
-# %%
-time.time()
-
-# %%
-from datetime import datetime
-
-# %%
-datetime.fromtimestamp(1625883885.0438263)
-
-# %%
-datetime.fromtimestamp(time.time())
-
-# %%
-
-# %%
-session = MendeleySession(mendeley, secrets["token"])
-
-# %%
-for i, item in enumerate(session.documents.iter()):
-    print(i)
-
-# %%
-
-# %%
-
-# %%
-auth = mendeley.start_authorization_code_flow()
-
-# %%
-state = auth.state
-
-# %%
-state
-
-# %%
-auth = mendeley.start_authorization_code_flow( state = state )
-
-# %%
-print(auth.get_login_url())
-
-# %%
-redirect = "https://stanford.edu/~nanbhas/?code=9wuJl29pvPtUq0HHvJdLzR2FGZ4&state=7A0TYULKQFKRUEM88K8YGIOA86WP68"
-
-# %%
-session = auth.authenticate(redirect)
-
-# %%
-session.token
-
-# %%
-secrets['token'] = session.token
-
-# %%
-
-# %%
-with open("secrets_mendeley_token.json", "w") as f:
-    json.dump(secrets, f)
-
-# %%
-
-# %%
-
-# %%
-
-# %%
+session = MendeleySession(mendeley, session.token, refresher=refresher)
 
 # %% [markdown]
 # ## Set up import from Mendeley
 
-# %%
-mendeley = Mendeley(client_id = secrets["clientId"], client_secret = secrets["clientSecret"], redirect_uri= "https://stanford.edu/~nanbhas")
+# %% tags=[] jupyter={"outputs_hidden": true}
+for i, item in enumerate(session.documents.iter()):
+    print(i, item)
 
 # %%
-auth = mendeley.start_authorization_code_flow()
-
-# %%
-# The user needs to visit this URL, and log in to Mendeley.
-login_url = auth.get_login_url()
-
-# %%
-print(login_url)
-
-# %%
-request_url = "https://stanford.edu/~nanbhas/?code=zs0bJRtgXZ5nWIjv8ADZlausMII&state=BXOZ678XOE3TZ3QGOIP6EQ3X1VHQE3"
-
-# %%
-#state = "D8RZL4TAUZD0PEKXOZF7ZLPMOIFKDV"
-#code = "FYw89IMFnW9loP1Pl4rhWl2I-uE"
-
-# %%
-#auth = mendeley.start_authorization_code_flow(state)
-mendeley_session = auth.authenticate(request_url)
-
-# %%
-with open('session.pkl', 'wb') as f:
-    pkl.dump(mendeley_session, f)
-
-# %%
-with open('session.pkl', 'rb') as f:
-    mendeley_session1 = pkl.load(f)
-
-# %%
-mendeley_session1.request
-
-# %%
-mendeley_session = MendeleySession()
-
+getNotionPageEntryFromPropObj(getPropertiesForMendeleyDoc(item))
 
 # %% [markdown]
-# ## Functions
+# ## Notion Setup
 
 # %%
-def getPropertiesForMendeleyDoc(docObj, 
-            localPrefix = 'file:///C:/Users/Nandita%20Bhaskhar/Documents/5_Others/1_GoogleDrive/Literature%20Review/'):
-    
-    prop = {}
-
-    prop['Citation'] = str(docObj.authors[0].last_name) + str(docObj.year)
-    prop['Title'] = str(docObj.title)
-    prop['UID'] = str(docObj.id)
-    
-    try:
-        for key, value in docObj.identifiers.items():
-            if key in ['doi', 'arxiv', 'pmid', 'issn', 'isbn']:
-                prop[key.upper()] = value
-    except:
-        pass
-    
-    prop['Created At'] = str(docObj.created)
-    prop['Last Modified At'] = str(docObj.last_modified)
-    prop['Abstract'] = str(docObj.abstract)[:2000]
-    prop['Authors'] = ', '.join([str(author.first_name) + ' ' + str(author.last_name) for author in docObj.authors])
-    prop['Year'] = str(docObj.year)
-    prop['Type'] = str(docObj.type)
-    prop['Venue'] = str(docObj.source)
-    
-    if len(docObj.authors) > 3:
-        fileName = str(docObj.authors[0].last_name) + ' et al.' + '_' + prop['Year'] + '_' + prop['Title'].replace(':','') + '.pdf'
-        prop['Filename'] = fileName
-        prop['Filepath'] = localPrefix + fileName
-        
-    else:
-        fileName = ', '.join([str(author.last_name) for author in docObj.authors])
-        fileName = fileName + '_' + prop['Year'] + '_' + prop['Title'].replace(':','') + '.pdf'
-        prop['Filename'] = fileName
-        prop['Filepath'] = localPrefix + fileName
-        
-    bibtex = '@article{' + prop['Citation'] + ', \n' + \
-            'author = {' + ' and '.join([str(author.last_name) + ', ' + str(author.first_name) for author in docObj.authors]) + '}, \n' + \
-            'journal = {' + prop['Venue'] + '}, \n' + \
-            'title = {' + prop['Title'] + '}, \n' + \
-            'year = {' +  prop['Year'] + '} \n' + '}'
-            
-    prop['BibTex'] = bibtex
-        
-    return prop
-    
-
+notion = Client(auth = secrets_notion['notionToken'])
 
 # %%
-def getNotionPageEntryFromPropObj(propObj):
-    
-    dateKeys = {'Created At', 'Last Modified At'}
-    urlKeys = {'Filepath'}
-    titleKeys = {'Citation'}
-    textKeys = set(propObj.keys()) - dateKeys - titleKeys - urlKeys
-    newPage = {
-        "Citation": {"title": [{"text": {"content": propObj['Citation']}}]}
-    }
-    
-    for key in textKeys:
-        newPage[key] = {"rich_text": [{"text": { "content": propObj[key]}}]}    
-    
-    for key in dateKeys:
-        newPage[key] = {"date": {"start": propObj[key] }}
-        
-    for key in urlKeys:
-        newPage[key] = {"url": propObj[key]}
-    
-    return newPage
-
-
-# %% [markdown]
-# # Trial
+notionDB_id = secrets_notion['databaseID']
 
 # %%
-notion = Client(auth=secrets_notion['notionToken'])
-
-# %%
-# Research Lit Review: 690abe1df3664a4eb53485b18185178e
-# Mendeley Trial: 6314e22663b04477959bb0de89806260
-notionDB_id = "690abe1df3664a4eb53485b18185178e"
-#notionDB_id = "6314e22663b04477959bb0de89806260"
-
-# %%
-for i, item in enumerate(mendeley_session1.groups.iter()):
+for i, item in enumerate(session.groups.iter()):
     print(i, item)
 
 # %%
@@ -345,6 +182,83 @@ while hasMore:
 len(allNotionRows)
 
 # %%
+xx = getAllRowsFromNotionDatabase(notion, notionDB_id)
+
+# %%
+notionRow = [row for row in xx if row['properties']['UID']['rich_text'][0]['text']['content'] == '3']
+
+
+# %%
+# !pip install tqdm
+
+# %%
+dbID = "6314e22663b04477959bb0de89806260"
+obj = []
+for item in session.groups.iter():
+    obj.append(item.documents)
+obj.append(session.documents)
+
+# %% tags=[]
+noneAU = []
+for ob in obj:
+    tmp = portMendeleyDocsToNotion(ob, notion, notionDB_id, noneAU)
+    noneAU = noneAU + tmp
+
+# %%
+it = next(obj[0].iter())
+
+# %%
+it.last_modified
+
+# %%
+allNotionRows = getAllRowsFromNotionDatabase(notion, notionDB_id)
+
+# %%
+notionRow = [row for row in allNotionRows if row['properties']['UID']['rich_text'][0]['text']['content'] == it.id]
+
+# %%
+notionRow = notionRow[0]
+
+# %%
+notionRow['last_edited_time']
+
+# %%
+import arrow
+
+# %%
+t = notionRow['last_edited_time']
+
+# %%
+mt = it.last_modified
+
+# %%
+mt.to('US/Pacific')
+
+# %%
+t
+
+# %%
+mt
+
+# %%
+arrow.get(t)
+
+# %%
+mt.format('YYYY-MM-DD HH:mm:ss ZZ')
+
+# %%
+arrow.get(t).format('YYYY-MM-DD HH:mm:ss ZZ')
+
+# %%
+mt.to('US/Pacific') < arrow.get(t).to('US/Pacific')
+
+# %%
+
+# %%
+
+# %%
+
+# %%
 noneAuthors = []
 for i, it in enumerate(mendeley_session.documents.iter()):
 #for i, it in enumerate(item.documents.iter()):
@@ -360,7 +274,7 @@ for i, it in enumerate(mendeley_session.documents.iter()):
         if numMatches == 1:
             notionRow = notionRow[0] 
         
-        assert numMatches < 2
+        assert numMatches < 2, "Duplicates are present in the notion database"
         
 
         if numMatches == 1:
@@ -393,7 +307,7 @@ for i, it in enumerate(mendeley_session.documents.iter()):
         noneAuthors.append(it)
 
 # %%
-notionRow[0]
+notionRow
 
 # %%
 print(i, it.title)
