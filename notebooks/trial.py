@@ -253,6 +253,7 @@ arrow.get(t).format('YYYY-MM-DD HH:mm:ss ZZ')
 mt.to('US/Pacific') < arrow.get(t).to('US/Pacific')
 
 # %%
+arrow.get(time.time()).to('US/Pacific').format('YYYY-MM-DD HH:mm:ss ZZ')
 
 # %%
 
