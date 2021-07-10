@@ -162,6 +162,7 @@ def getAllRowsFromNotionDatabase(notion, notionDB_id):
                                 }
                             )
             except:
+                print('Sleeping to avoid rate limit')
                 time.sleep(30)
                 query = notion.databases.query(
                                 **{
@@ -180,6 +181,7 @@ def getAllRowsFromNotionDatabase(notion, notionDB_id):
                                 }
                             )
             except:
+                print('Sleeping to avoid rate limit')
                 time.sleep(30)
                 query = notion.databases.query(
                                 **{
@@ -244,7 +246,8 @@ def portMendeleyDocsToNotion(obj, notion, notionDB_id, noneAuthors = []):
                     try:
                         notion.pages.update( pageID, properties = notionPage)
                     except:
-                        time.sleep(60)
+                        print('Sleeping to avoid rate limit')
+                        time.sleep(30)
                         notion.pages.update( pageID, properties = notionPage)
 
                 else:
@@ -260,7 +263,8 @@ def portMendeleyDocsToNotion(obj, notion, notionDB_id, noneAuthors = []):
                 try:
                     notion.pages.create(parent={"database_id": notionDB_id}, properties = notionPage)
                 except:
-                    time.sleep(60)
+                    print('Sleeping to avoid rate limit')
+                    time.sleep(30)
                     notion.pages.create(parent={"database_id": notionDB_id}, properties = notionPage)
 
             else:
