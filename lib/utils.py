@@ -147,6 +147,7 @@ def getAllRowsFromNotionDatabase(notion, notionDB_id):
         allNotionRows: (list of notion rows)
 
     '''
+    start = time.time()
     hasMore = True
     allNotionRows = []
     i = 0
@@ -173,7 +174,9 @@ def getAllRowsFromNotionDatabase(notion, notionDB_id):
         hasMore = query['has_more']
         i+=1
 
+    end = time.time()
     print('Number of rows in notion currently: ' + str(len(allNotionRows)))
+    print('Total time taken: ' + str(end-start))
 
     return allNotionRows
 
