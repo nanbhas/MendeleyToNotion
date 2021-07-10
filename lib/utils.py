@@ -6,8 +6,12 @@ Misc. helper functions
 
 import os
 import sys
+
+import mendeley
 sys.path.append('../')
 
+import time
+import arrow
 import json
 
 from mendeley import Mendeley
@@ -74,8 +78,8 @@ def getPropertiesForMendeleyDoc(docObj, localPrefix = 'file:///C:/Users/Nandita%
     except:
         pass
     
-    prop['Created At'] = str(docObj.created)
-    prop['Last Modified At'] = str(docObj.last_modified)
+    prop['Created At'] = str(docObj.created.to('US/Pacific'))
+    prop['Last Modified At'] = str(docObj.last_modified.to('US/Pacific'))
     prop['Abstract'] = str(docObj.abstract)[:2000]
     prop['Authors'] = ', '.join([str(author.first_name) + ' ' + str(author.last_name) for author in docObj.authors])
     prop['Year'] = str(docObj.year)
@@ -172,3 +176,74 @@ def getAllRowsFromNotionDatabase(notion, notionDB_id):
     print('Number of rows in notion currently: ' + str(len(allNotionRows)))
 
     return allNotionRows
+
+
+def portMendeleyDocsToNotion(obj, notion, notionDB_id, noneAuthors = []):
+    '''
+    Port all objs from Mendeley to Notion
+    Args:
+        obj: (mendeley obj iter) iterator e.g. documents.iter() 
+        notion: (notion Client) Notion client object
+        notionDB_id: (str) string code id for the relevant database
+        noneAuthors: (list of mendeley UserDocuments obj) entries for which author list is empty
+    Returns:
+        noneAuthors: (list of mendeley UserDocuments obj) entries for which author list is empty
+    '''
+    allNotionRows = getAllRowsFromNotionDatabase(notion, notionDB_id)
+
+    for i, it in enumerate(obj.iter()):
+
+        print(i, it.title)
+        
+        if it.authors is not None:
+
+            # check if its ID is in notion
+            notionRow = [row for row in allNotionRows if row['properties']['UID']['rich_text'][0]['text']['content'] == it.id]
+            
+            # ensure not more than one match
+            numMatches = len(notionRow)
+            assert numMatches < 2, "Duplicates are present in the notion database"
+            
+            if numMatches == 1:
+
+                print('----1 result matched query')
+                notionRow = notionRow[0]
+
+                mendeleyTime = it.last_modified.to('US/Pacific')
+                notionTime = arrow.get(notionRow['last_edited_time']).to('US/Pacific')
+
+                # last modified time on Mendeley is AFTER last edited time on Notion
+                if mendeleyTime > notionTime:
+                    print('--------Updating row in notion')
+                    pageID = notionRow['id']
+                    propObj = getPropertiesForMendeleyDoc(it)
+                    notionPage = getNotionPageEntryFromPropObj(propObj)
+                    try:
+                        notion.pages.update( pageID, properties = notionPage)
+                    except:
+                        time.sleep(60)
+                        notion.pages.update( pageID, properties = notionPage)
+
+                else:
+                    print('--------Nothing to update')
+                    pass
+
+            elif numMatches == 0:
+
+                print('----No results matched query. Creating new row')
+                # extract properties and format it well
+                propObj = getPropertiesForMendeleyDoc(it)
+                notionPage = getNotionPageEntryFromPropObj(propObj)
+                try:
+                    notion.pages.create(parent={"database_id": notionDB_id}, properties = notionPage)
+                except:
+                    time.sleep(60)
+                    notion.pages.create(parent={"database_id": notionDB_id}, properties = notionPage)
+
+            else:
+                raise NotImplementedError
+
+        else:
+            noneAuthors.append(it)
+
+    return noneAuthors
