@@ -7,6 +7,8 @@ End-to-end script for getting updates from Mendeley on to the Notion Database of
 import sys
 sys.path.append('../')
 
+import time
+import arrow
 import json
 
 from mendeley import Mendeley
@@ -33,6 +35,10 @@ parser.add_argument('--secretsFilePath', default = None, type = noneOrStr,
 
 # main script
 if __name__ == "__main__":
+
+    print('==========================================================')
+    start = arrow.get(time.time()).to('US/Pacific').format('YYYY-MM-DD HH:mm:ss ZZ')
+    print('Starting at ' + str(start) + '\n\n') 
 
     # parse all arguments
     args = parser.parse_args()
