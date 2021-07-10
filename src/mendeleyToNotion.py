@@ -36,7 +36,7 @@ parser.add_argument('--secretsFilePath', default = None, type = noneOrStr,
 # main script
 if __name__ == "__main__":
 
-    print('==========================================================')
+    print('\n\n==========================================================')
     start = arrow.get(time.time()).to('US/Pacific').format('YYYY-MM-DD HH:mm:ss ZZ')
     print('Starting at ' + str(start) + '\n\n') 
 
