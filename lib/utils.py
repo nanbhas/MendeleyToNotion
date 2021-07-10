@@ -1,252 +1,156 @@
-  
-"""
+""" 
 Author: Nandita Bhaskhar
-Misc. helper functions
+General utility functions
 """
 
 import os
-import sys
+import argparse
 
-import mendeley
-sys.path.append('../')
-
-import time
-import arrow
 import json
+import logging
 
-from mendeley import Mendeley
-from mendeley.session import MendeleySession
+import string
+import random
 
-
-def startInteractiveMendeleyAuthorization(mendeley, secretsFilePath = None):
-    '''
-    Start an interactive OAuth flow
-    Args:
-        mendeley: (Mendeley) a Mendeley Class object
-        secretsFilePath: (str) optional - path of the json file to store secrets
-    Returns:
-        No return value
-        Generates session token after user authorization and then
-            either prints it or writes to a json file
-    '''
-    auth = mendeley.start_authorization_code_flow()
-    state = auth.state
-    auth = mendeley.start_authorization_code_flow( state = state )
-    print(auth.get_login_url())
-
-    # After logging in, the user will be redirected to a URL, auth_response.
-    session = auth.authenticate( input() )
-
-    if secretsFilePath:
-        assert secretsFilePath.endswith('.json'), "secretsFilePath should be a json file"
-
-        if os.path.isfile(secretsFilePath):
-            with open(secretsFilePath, "r") as f:
-                secrets = json.load(f)
-        else: 
-            secrets = {}
-
-        secrets['token'] = session.token
-
-        with open(secretsFilePath, "w") as f:
-            json.dump(secrets, f)
+def strToBool(v):
+    ''' Converts commonly inputted bool strings to type bool '''
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
     else:
-        print(session.token)
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+		
+def noneOrStr(value):
+    ''' Converts string 'None' to None type '''
+    if value == 'None':
+        return None
+    return value
 
+def idGenerator(size=6, chars=string.ascii_uppercase + string.digits):
+    # size=6, chars=string.ascii_uppercase + string.digits
+    ''' Generate random string ids for directory names  '''
+    return ''.join(random.choice(chars) for _ in range(size))
+	
+def safeID(dirPath):
+    ''' Return a directory name which has not been created yet '''
+    str = idGenerator()
+    if str not in os.listdir(dirPath):
+        return str
+    else:
+        safeID(dirPath)
 
-def getPropertiesForMendeleyDoc(docObj, localPrefix = 'file:///C:/Users/Nandita%20Bhaskhar/Documents/5_Others/1_GoogleDrive/Literature%20Review/'):
-    '''
-    Gets all properties of a document object in Mendeley as a dict
-    Args:
-        docObj: (mendeley.models.documents.UserDocument object) 
-        localPrefix: (Str) local filepath prefix to be added to the filename
-    Returns:
-        prop: (dict) containing all relevant document keys
-                Citation, Title, UID, ..., 
-    '''
-    
-    prop = {}
-
-    prop['Citation'] = str(docObj.authors[0].last_name) + str(docObj.year)
-    prop['Title'] = str(docObj.title)
-    prop['UID'] = str(docObj.id)
-    
+def safeMkdir(path):
+    ''' Create a directory if there isn't one already '''
     try:
-        for key, value in docObj.identifiers.items():
-            if key in ['doi', 'arxiv', 'pmid', 'issn', 'isbn']:
-                prop[key.upper()] = value
-    except:
+        #print('Creating directory: ' + path)
+        os.mkdir(path)
+    except OSError:
+        #print('Directory already exists')
         pass
-    
-    prop['Created At'] = str(docObj.created.to('US/Pacific'))
-    prop['Last Modified At'] = str(docObj.last_modified.to('US/Pacific'))
-    prop['Abstract'] = str(docObj.abstract)[:2000]
-    prop['Authors'] = ', '.join([str(author.first_name) + ' ' + str(author.last_name) for author in docObj.authors])
-    prop['Year'] = str(docObj.year)
-    prop['Type'] = str(docObj.type)
-    prop['Venue'] = str(docObj.source)
-    
-    if len(docObj.authors) > 3:
-        fileName = str(docObj.authors[0].last_name) + ' et al.' + '_' + prop['Year'] + '_' + prop['Title'].replace(':','') + '.pdf'
-        prop['Filename'] = fileName
-        prop['Filepath'] = localPrefix + fileName
-        
-    else:
-        fileName = ', '.join([str(author.last_name) for author in docObj.authors])
-        fileName = fileName + '_' + prop['Year'] + '_' + prop['Title'].replace(':','') + '.pdf'
-        prop['Filename'] = fileName
-        prop['Filepath'] = localPrefix + fileName
-        
-    bibtex = '@article{' + prop['Citation'] + ', \n' + \
-            'author = {' + ' and '.join([str(author.last_name) + ', ' + str(author.first_name) for author in docObj.authors]) + '}, \n' + \
-            'journal = {' + prop['Venue'] + '}, \n' + \
-            'title = {' + prop['Title'] + '}, \n' + \
-            'year = {' +  prop['Year'] + '} \n' + '}'
-            
-    prop['BibTex'] = bibtex
-        
-    return prop
 
+class Params():
+    """ 
+    Class that loads hyperparameters from a json file.
+    Example:
+    ```
+    params = Params(json_path)
+    print(params.learning_rate) # access parameters from the file
+    params.learning_rate = 0.5  # change the value of learning_rate in params
+    params.save(json_path) # update the json file
+    params.dict # access the dictionary defined by params
+    ```
+    """
 
-def getNotionPageEntryFromPropObj(propObj):
+    def __init__(self, json_path):
+        self.update(json_path)
+
+    def save(self, json_path):
+        '''Saves parameters to json file'''
+        with open(json_path, 'w') as f:
+            json.dump(self.__dict__, f, indent=4)
+
+    def update(self, json_path):
+        '''Loads parameters from json file'''
+        with open(json_path) as f:
+            params = json.load(f)
+            self.__dict__.update(params)
+
+    @property
+    def dict(self):
+        '''Gives dict-like access to Params instance by `params.dict['learning_rate']`'''
+        return self.__dict__
+
+		
+def setLogger(log_path):
     '''
-    Format the propObj dict to Notion page format
+    Sets the logger to log info in terminal and file `log_path`.
+    In general, it is useful to have a logger so that every output to the terminal is saved
+    in a permanent file. Here we save it to `expDir/train.log`.
+    Example:
+    ```
+    logging.info("Starting training...")
+    ```
     Args:
-        propObj: (dict)
-    Returns:
-        newPage: (Notion formated dict)
+        log_path: (string) where to log
     '''
-    
-    dateKeys = {'Created At', 'Last Modified At'}
-    urlKeys = {'Filepath'}
-    titleKeys = {'Citation'}
-    textKeys = set(propObj.keys()) - dateKeys - titleKeys - urlKeys
-    newPage = {
-        "Citation": {"title": [{"text": {"content": propObj['Citation']}}]}
-    }
-    
-    for key in textKeys:
-        newPage[key] = {"rich_text": [{"text": { "content": propObj[key]}}]}    
-    
-    for key in dateKeys:
-        newPage[key] = {"date": {"start": propObj[key] }}
-        
-    for key in urlKeys:
-        newPage[key] = {"url": propObj[key]}
-    
-    return newPage
-    
+	
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
 
-def getAllRowsFromNotionDatabase(notion, notionDB_id):
+    if not logger.handlers:
+        # Logging to a file
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s: %(message)s'))
+        logger.addHandler(file_handler)
+
+        # Logging to console
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(logging.Formatter('%(message)s'))
+        logger.addHandler(stream_handler)
+
+def saveDictToJson(d, json_path):
     '''
-    Gets all rows (pages) from a notion database using a notion client
+    Saves dict of floats in json file
     Args:
-        notion: (notion Client) Notion client object
-        notionDB_id: (str) string code id for the relevant database
-    Returns:
-        allNotionRows: (list of notion rows)
-
+        d: (dict) of float-castable values (np.float, int, float, etc.)
+        json_path: (string) path to json file
     '''
-    start = time.time()
-    hasMore = True
-    allNotionRows = []
-    i = 0
-
-    while hasMore:
-        if i == 0:
-            query = notion.databases.query(
-                            **{
-                                "database_id": notionDB_id,
-                                #"filter": {"property": "UID", "text": {"equals": it.id}},
-                            }
-                        )
-        else:
-            query = notion.databases.query(
-                            **{
-                                "database_id": notionDB_id,
-                                "start_cursor": nextCursor,
-                                #"filter": {"property": "UID", "text": {"equals": it.id}},
-                            }
-                        )
-            
-        allNotionRows = allNotionRows + query['results']
-        nextCursor = query['next_cursor']
-        hasMore = query['has_more']
-        i+=1
-
-    end = time.time()
-    print('Number of rows in notion currently: ' + str(len(allNotionRows)))
-    print('Total time taken: ' + str(end-start))
-
-    return allNotionRows
-
-
-def portMendeleyDocsToNotion(obj, notion, notionDB_id, noneAuthors = []):
-    '''
-    Port all objs from Mendeley to Notion
-    Args:
-        obj: (mendeley obj iter) iterator e.g. documents.iter() 
-        notion: (notion Client) Notion client object
-        notionDB_id: (str) string code id for the relevant database
-        noneAuthors: (list of mendeley UserDocuments obj) entries for which author list is empty
-    Returns:
-        noneAuthors: (list of mendeley UserDocuments obj) entries for which author list is empty
-    '''
-    allNotionRows = getAllRowsFromNotionDatabase(notion, notionDB_id)
-
-    for i, it in enumerate(obj.iter()):
-
-        print(i, it.title)
+    with open(json_path, 'w') as f:
+        # Need to convert the values to float for json (it doesn't accept np.array, np.float, )
+        d = {k: float(v) for k, v in d.items()}
+        json.dump(d, f, indent=4)
         
-        if it.authors is not None:
+        
+class RunningAverage():
+    """A simple class that maintains the running average of a quantity
+    
+    Example:
+    ```
+    loss_avg = RunningAverage()
+    loss_avg.update(2)
+    loss_avg.update(4)
+    loss_avg() = 3
+    ```
+    """
+    def __init__(self):
+        self.steps = 0
+        self.total = 0
+    
+    def update(self, val):
+        self.total += val
+        self.steps += 1
+    
+    def __call__(self):
+        return self.total/float(self.steps)
 
-            # check if its ID is in notion
-            notionRow = [row for row in allNotionRows if row['properties']['UID']['rich_text'][0]['text']['content'] == it.id]
-            
-            # ensure not more than one match
-            numMatches = len(notionRow)
-            assert numMatches < 2, "Duplicates are present in the notion database"
-            
-            if numMatches == 1:
+class IterMeter(object):
+    """keeps track of total iterations"""
+    def __init__(self):
+        self.val = 0
 
-                print('----1 result matched query')
-                notionRow = notionRow[0]
+    def step(self):
+        self.val += 1
 
-                mendeleyTime = it.last_modified.to('US/Pacific')
-                notionTime = arrow.get(notionRow['last_edited_time']).to('US/Pacific')
-
-                # last modified time on Mendeley is AFTER last edited time on Notion
-                if mendeleyTime > notionTime:
-                    print('--------Updating row in notion')
-                    pageID = notionRow['id']
-                    propObj = getPropertiesForMendeleyDoc(it)
-                    notionPage = getNotionPageEntryFromPropObj(propObj)
-                    try:
-                        notion.pages.update( pageID, properties = notionPage)
-                    except:
-                        time.sleep(60)
-                        notion.pages.update( pageID, properties = notionPage)
-
-                else:
-                    print('--------Nothing to update')
-                    pass
-
-            elif numMatches == 0:
-
-                print('----No results matched query. Creating new row')
-                # extract properties and format it well
-                propObj = getPropertiesForMendeleyDoc(it)
-                notionPage = getNotionPageEntryFromPropObj(propObj)
-                try:
-                    notion.pages.create(parent={"database_id": notionDB_id}, properties = notionPage)
-                except:
-                    time.sleep(60)
-                    notion.pages.create(parent={"database_id": notionDB_id}, properties = notionPage)
-
-            else:
-                raise NotImplementedError
-
-        else:
-            noneAuthors.append(it)
-
-    return noneAuthors
+    def get(self):
+        return self.val
