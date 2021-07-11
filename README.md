@@ -61,3 +61,19 @@ Date properties: Created At, Last Modified At
 7. Run the python script `src/mendeleyToNotion.py` with `--secretsFilePath` argument as `secrets/secrets_mendeley.py`
 8. Authenticate your Mendeley app by logging in. It will automatically generate a token and add it to your `secrets/secrets_mendeley.py`
 9. You can periodically run this file again as a script `scripts/runMendToNotion.sh` using a crontab job to get periodic updates
+
+## Sources
+
+I wanted to make use of the [mendeley python sdk](https://github.com/Mendeley/mendeley-python-sdk) directly, but their `auth` code has issues with the `refresh` method. Instead, I have cloned the `mendeley` project and made changes to it locally, most notably in the `MendeleyAuthorizationCodeTokenRefresher` class in `mendeley/auth.py`
+```
+def refresh(self, session):
+    #oauth = OAuth2Session(client=self.client, redirect_uri=self.redirect_uri, scope=['all'], token=session.token)
+    #print(session.token)
+    #oauth.compliance_hook['access_token_response'] = [handle_text_response]
+
+    #session.token = oauth.refresh_token(self.token_url, auth=self.auth)
+    session.refresh_token(self.token_url, auth=self.auth)
+    #print(session.token)
+```
+
+## If you use it in your work and want to adapt this code, please consider starring this repo or forking from it!
