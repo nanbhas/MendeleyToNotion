@@ -1,4 +1,5 @@
 arrow
+future==0.14.3
 jupyterlab
 jupytext
 notion-client
