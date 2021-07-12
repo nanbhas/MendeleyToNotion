@@ -251,7 +251,7 @@ def portMendeleyDocsToNotion(obj, notion, notionDB_id, noneAuthors = []):
                         notion.pages.update( pageID, properties = notionPage)
 
                 else:
-                    print('--------Nothing to update')
+                    #print('--------Nothing to update')
                     pass
 
             elif numMatches == 0:
