@@ -84,7 +84,7 @@ Date properties: Created At, Last Modified At
 ## Sources
 
 - [Notion API Python SDK](https://github.com/ramnes/notion-sdk-py)
-- [Mendeley Yython SDK](https://github.com/Mendeley/mendeley-python-sdk)
+- [Mendeley Python SDK](https://github.com/Mendeley/mendeley-python-sdk)
 
 **Note**: I wanted to make use of the [mendeley python sdk](https://github.com/Mendeley/mendeley-python-sdk) directly, but their `auth` code has issues with the `refresh` method. Instead, I have cloned the `mendeley` project and made changes to it locally, most notably in the `MendeleyAuthorizationCodeTokenRefresher` class in `mendeley/auth.py`
 ```
