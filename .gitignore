@@ -1,5 +1,6 @@
 # Custom
-secrets
+secrets/*
+!secrets/*_dummy.json
 STDOUTlog.txt
 
 # Byte-compiled / optimized / DLL files

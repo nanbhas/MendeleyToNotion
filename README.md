@@ -51,7 +51,7 @@ This project allows you to export newly added or recently updated documents in M
 This hasn't been tested out after Mendeley's Sept 1, 2022 changes. It is not clear how long the API will remain available for easy access to Mendeley data.
 
 ## Usage
-1. Register an app on Mendeley's developer portal (follow instructions online)
+1. Register an app on Mendeley's developer portal (follow instructions [online](https://dev.mendeley.com/))
 2. Obtain its `clientID`, `clientSecret` and `redirectURL` and add it to `secrets/secrets_mendeley.json` in the following format:
 ```
 {
