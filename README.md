@@ -104,7 +104,7 @@ def refresh(self, session):
 @misc{nanbhas2021_mendeleyToNotion,
   title={Mendeley To Notion},
   author={Nandita Bhaskhar},
-  journal={GitHub Repo, https://github.com/nanbhas/MendeleyToNotion},
+  howpublished={GitHub Repo, https://github.com/nanbhas/MendeleyToNotion},
   year={2021}
 }
 ``` 
